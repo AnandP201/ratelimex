@@ -46,6 +46,13 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/org.springframework.data/spring-data-redis -->
+		<dependency>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-redis</artifactId>
+			<version>4.0.5</version>
+			<scope>compile</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
