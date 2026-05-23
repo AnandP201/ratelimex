@@ -1,6 +1,7 @@
 package com.anandorg.ratelimex.dto;
 
 public record RateLimitCheckRequest(
+        String tenantId,
         String userId,
         String api,
         Integer cost

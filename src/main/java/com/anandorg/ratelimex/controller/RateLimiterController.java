@@ -4,7 +4,6 @@ import com.anandorg.ratelimex.dto.RateLimitCheckRequest;
 import com.anandorg.ratelimex.dto.RateLimitCheckResponse;
 import com.anandorg.ratelimex.model.RateLimitDecision;
 import com.anandorg.ratelimex.service.RateLimiterService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,32 +24,19 @@ public class RateLimiterController {
         this.rateLimiterService = rateLimiterService;
     }
 
-    @GetMapping("/test")
-    public ResponseEntity<String> test(@RequestHeader String userId) {
-        RateLimitDecision decision = rateLimiterService.allowRequest(userId, "/api/test");
-        HttpHeaders headers = headersFor(decision);
-        if (!decision.allowed()) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .headers(headers)
-                    .body("Rate Limit Exceeded");
-        }
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body("Request allowed");
-    }
-
     @PostMapping("/rate-limit/check")
     public ResponseEntity<RateLimitCheckResponse> check(@RequestBody RateLimitCheckRequest request) {
 
         validate(request);
 
         RateLimitDecision decision = rateLimiterService.allowRequest(
+                request.tenantId(),
                 request.userId(),
                 request.api(),
                 request.normalizedCost()
         );
 
-        HttpStatus status = decision.allowed() ? HttpStatus.OK : HttpStatus.TOO_MANY_REQUESTS;
+        HttpStatus status = statusFor(decision);
 
         return ResponseEntity.status(status)
                 .headers(headersFor(decision))
@@ -63,6 +49,10 @@ public class RateLimiterController {
             throw new IllegalArgumentException("userId is required");
         }
 
+        if (request.tenantId() == null || request.tenantId().isBlank()) {
+            throw new IllegalArgumentException("tenantId is required");
+        }
+
         if (request.api() == null || request.api().isBlank()) {
             throw new IllegalArgumentException("api is required");
         }
@@ -70,6 +60,16 @@ public class RateLimiterController {
         if (request.normalizedCost() <= 0) {
             throw new IllegalArgumentException("cost must be greater than zero");
         }
+    }
+
+    private static HttpStatus statusFor(RateLimitDecision decision) {
+        if (decision.allowed()) {
+            return HttpStatus.OK;
+        }
+        if ("api_not_enabled_for_tenant".equals(decision.reason())) {
+            return HttpStatus.FORBIDDEN;
+        }
+        return HttpStatus.TOO_MANY_REQUESTS;
     }
 
     private static HttpHeaders headersFor(RateLimitDecision decision) {

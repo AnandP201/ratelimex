@@ -6,43 +6,62 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 
-import com.anandorg.ratelimex.model.RateLimitBucket;
-import com.anandorg.ratelimex.model.RateLimitConfig;
 import com.anandorg.ratelimex.model.LimitScope;
+import com.anandorg.ratelimex.model.RateLimitBucket;
+import com.anandorg.ratelimex.model.ResolvedRateLimitPolicy;
+import com.anandorg.ratelimex.model.TenantApiPolicy;
+import com.anandorg.ratelimex.service.policy.RateLimitPolicyException;
+import com.anandorg.ratelimex.service.policy.TenantPolicyService;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RateLimiterConfigManager {
 
     private final RatelimexProperties properties;
+    private final TenantPolicyService tenantPolicyService;
 
-    public RateLimiterConfigManager(RatelimexProperties properties) {
+    public RateLimiterConfigManager(RatelimexProperties properties, TenantPolicyService tenantPolicyService) {
         this.properties = properties;
+        this.tenantPolicyService = tenantPolicyService;
     }
 
-    public List<RateLimitBucket> bucketsFor(String userId, String api) {
-
+    public ResolvedRateLimitPolicy resolve(String tenantId, String userId, String api) {
+        String normalizedTenant = normalizeRequired("tenantId", tenantId);
         String normalizedUser = normalizeRequired("userId", userId);
         String normalizedApi = normalizeRequired("api", api);
 
-        RateLimitConfig globalLimit = properties.getGlobalLimit();
-        RateLimitConfig apiLimit = properties.getApiLimits().getOrDefault(normalizedApi, properties.getDefaultApiLimit());
-        RateLimitConfig userLimit = properties.getUserLimits().getOrDefault(normalizedUser, properties.getDefaultUserLimit());
 
-        globalLimit.validate("ratelimex.globalLimit");
-        apiLimit.validate("ratelimex.apiLimit[" + normalizedApi + "]");
-        userLimit.validate("ratelimex.userLimit[" + normalizedUser + "]");
+        TenantApiPolicy policy = tenantPolicyService.findPolicy(normalizedTenant, normalizedApi)
+                .orElseThrow(() -> new RateLimitPolicyException(
+                        "api_not_enabled_for_tenant",
+                        "No enabled API policy exists for tenant " + normalizedTenant + " and api " + normalizedApi
+                ));
 
-        return List.of(
-                new RateLimitBucket(LimitScope.GLOBAL, redisKey("global", "all"), globalLimit),
-                new RateLimitBucket(LimitScope.API, redisKey("api", hash(normalizedApi)), apiLimit),
-                new RateLimitBucket(LimitScope.USER, redisKey("user", hash(normalizedUser)), userLimit)
+        if (!policy.enabled()) {
+            throw new RateLimitPolicyException(
+                    "api_not_enabled_for_tenant",
+                    "API " + normalizedApi + " is disabled for tenant " + normalizedTenant
+            );
+        }
+
+        policy.validate();
+
+        return new ResolvedRateLimitPolicy(
+                normalizedTenant,
+                normalizedApi,
+                policy.failureMode(),
+                List.of(
+                        new RateLimitBucket(LimitScope.TENANT, redisKey(normalizedTenant, "tenant", "all"), policy.tenantLimit()),
+                        new RateLimitBucket(LimitScope.API, redisKey(normalizedTenant, "api", hash(normalizedApi)), policy.apiLimit()),
+                        new RateLimitBucket(LimitScope.USER, redisKey(normalizedTenant, "user", hash(normalizedUser)), policy.userLimit())
+                )
         );
     }
 
-    private String redisKey(String scope, String id) {
+    private String redisKey(String tenantId, String scope, String id) {
         String namespace = normalizeRequired("ratelimex.namespace", properties.getNamespace());
-        return "ratelimex:{" + namespace + "}:" + scope + ":" + id;
+        String hashTag = namespace + ":" + hash(tenantId);
+        return "ratelimex:{" + hashTag + "}:" + scope + ":" + id;
     }
 
     private static String normalizeRequired(String name, String value) {

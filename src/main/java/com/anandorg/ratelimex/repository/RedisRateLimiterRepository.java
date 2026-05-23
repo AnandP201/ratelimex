@@ -1,7 +1,12 @@
 package com.anandorg.ratelimex.repository;
 
+import com.anandorg.ratelimex.config.RatelimexProperties;
+import com.anandorg.ratelimex.metrics.RateLimitMetrics;
 import com.anandorg.ratelimex.model.RateLimitBucket;
 import com.anandorg.ratelimex.model.RateLimitConfig;
+import com.anandorg.ratelimex.service.RateLimiterService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -16,13 +21,17 @@ import java.util.List;
 @Repository
 public class RedisRateLimiterRepository implements RateLimitStore {
 
+//    private static final Logger log = LoggerFactory.getLogger(RedisRateLimiterRepository.class);
+
     private final StringRedisTemplate redisTemplate;
     private final Clock clock;
+    private final RateLimitMetrics metrics;
     private final DefaultRedisScript<List> tokenBucketScript;
 
-    public RedisRateLimiterRepository(StringRedisTemplate redisTemplate, Clock clock) {
+    public RedisRateLimiterRepository(StringRedisTemplate redisTemplate, Clock clock, RateLimitMetrics metrics) {
         this.redisTemplate = redisTemplate;
         this.clock = clock;
+        this.metrics = metrics;
         this.tokenBucketScript = new DefaultRedisScript<>();
         this.tokenBucketScript.setScriptSource(new ResourceScriptSource(new ClassPathResource("lua/token_bucket_all.lua")));
         this.tokenBucketScript.setResultType(List.class);
@@ -39,7 +48,7 @@ public class RedisRateLimiterRepository implements RateLimitStore {
             throw new IllegalArgumentException("cost must be greater than zero");
         }
 
-        // ratelimex:{default}:{scope}:{id} : redis keys
+        // ratelimex:{default:hash(tenantId)}:{scope}:{id} : redis keys
         List<String> keys = buckets.stream()
                 .map(RateLimitBucket::key)
                 .toList();
@@ -57,7 +66,9 @@ public class RedisRateLimiterRepository implements RateLimitStore {
         }
 
         try {
-            List<?> result = redisTemplate.execute(tokenBucketScript, keys, args.toArray(String[]::new));
+            List<?> result = metrics.recordRedisLatency(
+                    () -> redisTemplate.execute(tokenBucketScript, keys,  args.toArray(String[]::new))
+            );
 
             if (result == null || result.size() < 3) {
                 throw new RateLimitBackendException("Redis token bucket script returned no result");
@@ -70,10 +81,9 @@ public class RedisRateLimiterRepository implements RateLimitStore {
 
         } catch (RedisConnectionFailureException ex) {
             throw new RateLimitBackendException("Redis is unavailable", ex);
-        } catch (RuntimeException ex) {
-            if (ex instanceof RateLimitBackendException) {
-                throw ex;
-            }
+        } catch (RateLimitBackendException ex) {
+            throw ex;
+        } catch (Exception ex) {
             throw new RateLimitBackendException("Redis token bucket script failed", ex);
         }
     }

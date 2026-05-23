@@ -4,5 +4,5 @@ import com.anandorg.ratelimex.model.RateLimitDecision;
 
 public interface RateLimitStrategy {
 
-    RateLimitDecision allow(String userId, String api, int cost);
+    RateLimitDecision allow(String tenantId, String userId, String api, int cost);
 }
