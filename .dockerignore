@@ -1,0 +1,9 @@
+.git
+.idea
+.m2
+target
+*.iml
+*.log
+Dockerfile
+README.md
+HELP.md

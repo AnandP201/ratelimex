@@ -176,6 +176,7 @@ docker run -p 8080:8080 \
   -e DB_PASSWORD=ratelimex \
   -e REDIS_URL=redis://host.docker.internal:6379 \
   -e RATELIMEX_NAMESPACE=prod \
+  -e ADMIN_API_KEY=change-me \
   ratelimex:latest
 ```
 
@@ -184,7 +185,33 @@ Production profile expectations:
 - `/actuator/health/liveness` and `/actuator/health/readiness` are enabled.
 - `spring.jpa.hibernate.ddl-auto=validate`; schema must already exist.
 - database, Redis, and namespace values come from environment variables.
+- `/admin/**`, `/actuator/info`, and `/actuator/metrics/**` require `X-Admin-Api-Key`.
 - the Docker image runs as a non-root user.
+
+## Admin API Security
+
+Admin and diagnostic endpoints use stateless API-key authentication:
+
+```http
+X-Admin-Api-Key: your-admin-key
+```
+
+Access rules:
+
+```text
+/api/rate-limit/check      public/internal caller endpoint
+/actuator/health/**        public health probes
+/admin/**                  requires admin API key
+/actuator/info             requires admin API key
+/actuator/metrics/**       requires admin API key
+```
+
+Configure the key with:
+
+```properties
+ratelimex.security.admin-api-key=${ADMIN_API_KEY}
+ratelimex.security.admin-api-key-header=${ADMIN_API_KEY_HEADER:X-Admin-Api-Key}
+```
 
 ## Production Backlog
 
