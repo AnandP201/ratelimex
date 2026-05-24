@@ -219,8 +219,6 @@ High-value next additions:
 
 - Testcontainers Redis/PostgreSQL integration tests
 - Prometheus registry and Grafana dashboard
-- Admin authentication and RBAC
 - config-change events with Redis Pub/Sub or Kafka
 - Redis Sentinel/Cluster profile
 - load tests with k6 or Gatling
-- Dockerfile and full app compose profile
