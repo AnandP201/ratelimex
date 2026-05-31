@@ -4,6 +4,8 @@ import com.anandorg.ratelimex.dto.RateLimitCheckRequest;
 import com.anandorg.ratelimex.dto.RateLimitCheckResponse;
 import com.anandorg.ratelimex.model.RateLimitDecision;
 import com.anandorg.ratelimex.service.RateLimiterService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Rate Limiter Section", description = "Contains API which actually does the rate-limiting magic!")
 public class RateLimiterController {
 
     private final RateLimiterService rateLimiterService;
@@ -25,6 +28,7 @@ public class RateLimiterController {
     }
 
     @PostMapping("/rate-limit/check")
+    @Operation(summary="Implements rate-limit for the request", description = "RateLimitCheckRequest (body) required")
     public ResponseEntity<RateLimitCheckResponse> check(@RequestBody RateLimitCheckRequest request) {
 
         validate(request);

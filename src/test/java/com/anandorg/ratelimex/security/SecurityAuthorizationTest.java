@@ -65,6 +65,12 @@ class SecurityAuthorizationTest {
     }
 
     @Test
+    void swaggerDocsArePublic() throws Exception {
+        mockMvc.perform(get("/api-docs"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void metricsEndpointRequiresAdminApiKey() throws Exception {
         mockMvc.perform(get("/actuator/metrics"))
                 .andExpect(status().isUnauthorized());
