@@ -57,6 +57,7 @@ public class TenantPolicyService {
         policy.validate();
         String tenantId = normalize("tenantId", policy.tenantId());
         String api = normalize("api", policy.api());
+
         TenantApiPolicy normalizedPolicy = new TenantApiPolicy(
                 tenantId,
                 api,

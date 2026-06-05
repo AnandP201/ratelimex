@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: ratelimex-app
+
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ratelimex
+
+  template:
+    metadata:
+      labels:
+        app: ratelimex
+
+    spec:
+      containers:
+        - name: ratelimex
+          image: ratelimex:v2
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+          - name: DB_URL
+            value: "jdbc:postgresql://host.minikube.internal:5432/ratelimex"
+
+          - name: DB_USERNAME
+            value: "ratelimex"
+
+          - name: DB_PASSWORD
+            value: "ratelimex"
+
+          - name: REDIS_URL
+            value: "redis://host.minikube.internal:6379"
+
+          - name: ADMIN_API_KEY
+            value: "3dcad6e3-5c80-479d-bced-67e562e00d66"

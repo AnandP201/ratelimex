@@ -28,7 +28,9 @@ RUN chown ratelimex:ratelimex app.jar
 
 USER ratelimex
 
+ENV SPRING_JPA_HIBERNATE_DDL_AUTO=update
 ENV SPRING_PROFILES_ACTIVE=prod
+ENV RATELIMEX_NAMESPACE=master
 ENV SERVER_PORT=8080
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
 
