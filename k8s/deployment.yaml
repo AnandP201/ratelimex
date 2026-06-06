@@ -16,24 +16,47 @@ spec:
         app: ratelimex
 
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: ratelimex
-          image: ratelimex:v2
-          imagePullPolicy: Never
+          image: ghcr.io/anandp201/ratelimex:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:
           - name: DB_URL
-            value: "jdbc:postgresql://host.minikube.internal:5432/ratelimex"
+            valueFrom:
+              secretKeyRef:
+                name: ratelimex-secrets
+                key: DB_URL
 
           - name: DB_USERNAME
-            value: "ratelimex"
+            valueFrom:
+              secretKeyRef:
+                name: ratelimex-secrets
+                key: DB_USERNAME
 
           - name: DB_PASSWORD
-            value: "ratelimex"
+            valueFrom:
+              secretKeyRef:
+                name: ratelimex-secrets
+                key: DB_PASSWORD
 
           - name: REDIS_URL
-            value: "redis://host.minikube.internal:6379"
+            valueFrom:
+              secretKeyRef:
+                name: ratelimex-secrets
+                key: REDIS_URL
 
           - name: ADMIN_API_KEY
-            value: "3dcad6e3-5c80-479d-bced-67e562e00d66"
+            valueFrom:
+              secretKeyRef:
+                name: ratelimex-secrets
+                key: ADMIN_API_KEY
+
+          - name: RATELIMEX_NAMESPACE
+            valueFrom:
+              secretKeyRef:
+                name: ratelimex-secrets
+                key: RATELIMEX_NAMESPACE

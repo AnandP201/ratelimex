@@ -158,6 +158,47 @@ DB_PASSWORD=ratelimex
 DB_DRIVER=org.postgresql.Driver
 ```
 
+## CI/CD
+
+The workflow in `.github/workflows/ci-cd.yml`:
+
+- runs `./mvnw verify` for pull requests and pushes
+- builds the Docker image after tests pass
+- pushes `latest` and `sha-<commit>` images to GitHub Container Registry on pushes to `main` or `master`
+- deploys to Kubernetes only when the repository variable `ENABLE_K8S_DEPLOY` is `true`
+
+Image publishing uses the workflow's built-in `GITHUB_TOKEN`; no registry password is required. In the GitHub repository, ensure Actions has read and write package permission under **Settings > Actions > General > Workflow permissions**.
+
+Before enabling deployment, add:
+
+- repository secret `KUBE_CONFIG_BASE64`: base64-encoded kubeconfig for a cluster reachable from GitHub-hosted runners
+- repository variable `ENABLE_K8S_DEPLOY`: `true`
+- optional repository variable `KUBE_NAMESPACE`: target namespace, otherwise `default`
+- a protected GitHub environment named `production` if deployment approval is required
+
+Create the runtime secret in the target namespace:
+
+```bash
+kubectl create secret generic ratelimex-secrets \
+  --from-literal=DB_URL='jdbc:postgresql://postgres:5432/ratelimex' \
+  --from-literal=DB_USERNAME='ratelimex' \
+  --from-literal=DB_PASSWORD='change-me' \
+  --from-literal=REDIS_URL='redis://redis:6379' \
+  --from-literal=ADMIN_API_KEY='change-me' \
+  --from-literal=RATELIMEX_NAMESPACE='prod'
+```
+
+For a private GHCR package, also create the image pull secret referenced by the deployment:
+
+```bash
+kubectl create secret docker-registry ghcr-pull-secret \
+  --docker-server=ghcr.io \
+  --docker-username='<github-user>' \
+  --docker-password='<token-with-read-packages>'
+```
+
+The repository currently uses `master`. The workflow also supports `main`, so it will continue working if the default branch is renamed.
+
 ## Production Deployment
 
 Build the image:
